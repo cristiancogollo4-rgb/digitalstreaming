@@ -56,12 +56,6 @@ fun ClientsScreen() {
                     ClientCardItem()
                 }
             }
-            // --- AQUI IMPLEMENTAMOS EL COMPONENTE REUTILIZABLE ---
-            SharedBottomNavigation(
-                onNotificationClick = { /* Acción notificaciones */ },
-                onHomeClick = { /* Navegar al Home */ },
-                onStatsClick = { /* Acción Estadísticas */ }
-            )
         }
 
         // Botón Flotante

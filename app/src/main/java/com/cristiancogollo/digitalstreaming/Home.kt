@@ -1,9 +1,9 @@
 package com.cristiancogollo.digitalstreaming
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,19 +16,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.ai.client.generativeai.Chat
+import androidx.navigation.NavController
 
-
-// --- 1. Definición de Colores ---
-val DarkBackground = Color(0xFF282828) // Gris oscuro casi negro
-val BrandYellow = Color(0xFFFFE066)    // Amarillo tipo "Digital Streaming"
-val TextWhite = Color(0xFFEEEEEE)
-
+// Recibimos el NavController para poder navegar al hacer click en las cartas
 @Composable
-fun DigitalStreamingApp() {
+fun HomeScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -39,57 +33,16 @@ fun DigitalStreamingApp() {
 
         HeaderSection()
         Spacer(modifier = Modifier.height(40.dp))
-        MenuGridSection()
 
-        Spacer(modifier = Modifier.weight(1f)) // Empuja hacia abajo
+        // Pasamos el navController a la grilla
+        MenuGridSection(navController)
 
-        // --- AQUI IMPLEMENTAMOS EL COMPONENTE REUTILIZABLE ---
-        SharedBottomNavigation(
-            onNotificationClick = { /* Acción notificaciones */ },
-            onHomeClick = { /* Acción Home */ },
-            onStatsClick = { /* Acción Estadísticas */ }
-        )
-    }
-}
-
-// --- Componentes Modulares ---
-
-@Composable
-fun HeaderSection() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 16.dp)
-    ) {
-        // Icono de Claqueta (Simulado con Movie)
-        Icon(
-            imageVector = Icons.Default.Movie,
-            contentDescription = "Logo",
-            tint = TextWhite,
-            modifier = Modifier.size(60.dp)
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column {
-            Text(
-                text = "Digital",
-                color = TextWhite,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "STREAMING",
-                color = BrandYellow,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.sp
-            )
-        }
+        // NOTA: Eliminamos SharedBottomNavigation de aquí porque ya está en MainActivity
     }
 }
 
 @Composable
-fun MenuGridSection() {
+fun MenuGridSection(navController: NavController) {
     Column(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         modifier = Modifier.padding(horizontal = 30.dp)
@@ -103,15 +56,17 @@ fun MenuGridSection() {
             MenuCard(
                 title = "Clientes",
                 icon = Icons.Default.Person,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate(AppScreens.Clientes.route) } // NAVEGACIÓN
             )
             MenuCard(
                 title = "Productos",
                 icon = Icons.Outlined.PlayCircle,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate(AppScreens.Productos.route) } // NAVEGACIÓN
             )
         }
-        //Spacer(modifier = Modifier.height(25.dp))
+
         // Fila 2
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -119,13 +74,15 @@ fun MenuGridSection() {
         ) {
             MenuCard(
                 title = "Ventas",
-                icon = Icons.Default.ConfirmationNumber, // Icono tipo Ticket
-                modifier = Modifier.weight(1f)
+                icon = Icons.Default.ConfirmationNumber,
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate(AppScreens.Ventas.route) } // NAVEGACIÓN
             )
             MenuCard(
                 title = "Programar\nMensaje",
                 icon = Icons.Default.Chat,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { /* Acción futura */ }
             )
         }
     }
@@ -135,11 +92,13 @@ fun MenuGridSection() {
 fun MenuCard(
     title: String,
     icon: ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit // Añadimos evento Click
 ) {
-    // Diseño de cada botón grande
     Card(
-        modifier = modifier.aspectRatio(0.85f), // Mantiene proporción vertical rectangular
+        modifier = modifier
+            .aspectRatio(0.85f)
+            .clickable { onClick() }, // Hacemos la carta clickeable
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         border = BorderStroke(1.5.dp, BrandYellow)
@@ -170,13 +129,23 @@ fun MenuCard(
     }
 }
 
-
-
-// --- 5. Implementación de Preview ---
-@Preview(showBackground = true)
 @Composable
-fun PreviewDigitalStreaming() {
-    MaterialTheme {
-        DigitalStreamingApp()
+fun HeaderSection() {
+    // (Tu código de Header original, sin cambios)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(horizontal = 16.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Movie,
+            contentDescription = "Logo",
+            tint = TextWhite,
+            modifier = Modifier.size(60.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(text = "Digital", color = TextWhite, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(text = "STREAMING", color = BrandYellow, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+        }
     }
 }

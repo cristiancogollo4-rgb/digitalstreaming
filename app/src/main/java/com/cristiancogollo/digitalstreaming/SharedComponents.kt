@@ -13,6 +13,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,46 +21,67 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
 
-// Asegúrate de que los colores sean accesibles aquí
-val SharedBrandYellow = Color(0xFFFFE066)
-val SharedTextWhite = Color(0xFFEEEEEE)
-
+// Colores
+val DarkBackground = Color(0xFF282828) // Gris oscuro casi negro
+val BrandYellow = Color(0xFFFFE066)    // Amarillo corporativo
+val TextWhite = Color(0xFFEEEEEE)      // Blanco suave para textos
 @Composable
 fun SharedBottomNavigation(
-    onNotificationClick: () -> Unit = {},
-    onHomeClick: () -> Unit = {},
-    onStatsClick: () -> Unit = {}
+    navController: NavHostController
 ) {
+    // Detectamos la ruta actual para saber qué icono pintar
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF282828)) // Fondo oscuro
+            .background(Color(0xFF282828))
     ) {
-        // Línea divisoria
         Divider(color = Color.Gray, thickness = 0.5.dp)
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, // Distribuye los botones equitativamente
+                .padding(vertical = 12.dp, horizontal = 24.dp), // Ajusté padding
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
+            // 1. Notificaciones
             SharedBottomNavItem(
                 icon = Icons.Default.Notifications,
                 label = "Notificaciones",
-                onClick = onNotificationClick
+                isSelected = currentRoute == AppScreens.Notificaciones.route,
+                onClick = {
+                    navController.navigate(AppScreens.Notificaciones.route) {
+                        launchSingleTop = true
+                    }
+                }
             )
+
+            // 2. Home
             SharedBottomNavItem(
                 icon = Icons.Default.Home,
                 label = "Home",
-                onClick = onHomeClick
+                isSelected = currentRoute == AppScreens.Home.route,
+                onClick = {
+                    navController.navigate(AppScreens.Home.route) {
+                        popUpTo(AppScreens.Home.route) { inclusive = true }
+                    }
+                }
             )
+
+            // 3. Estadísticas (Existe pero no navega)
             SharedBottomNavItem(
                 icon = Icons.Default.BarChart,
                 label = "Estadísticas",
-                onClick = onStatsClick
+                isSelected = false, // Nunca seleccionado por ahora
+                onClick = {
+                    // AQUÍ NO HACEMOS NADA POR AHORA
+                }
             )
         }
     }
@@ -69,25 +91,32 @@ fun SharedBottomNavigation(
 fun SharedBottomNavItem(
     icon: ImageVector,
     label: String,
+    isSelected: Boolean, // Nuevo parámetro para saber si pintarlo de amarillo
     onClick: () -> Unit
 ) {
+    // Si está seleccionado usamos Amarillo, si no, Blanco
+    val contentColor = if (isSelected) BrandYellow else TextWhite
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clickable { onClick() } // Hace que todo el item sea clickeable
-            .padding(4.dp) // Un poco de área touch extra
+            .clickable { onClick() }
+            .padding(4.dp)
     ) {
-        // Círculo alrededor del icono
         Box(
             modifier = Modifier
                 .size(45.dp)
-                .border(1.5.dp, SharedBrandYellow, CircleShape),
+                .border(
+                    width = 1.5.dp,
+                    color = contentColor, // Borde cambia de color
+                    shape = CircleShape
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = SharedTextWhite,
+                tint = contentColor, // Icono cambia de color
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -96,8 +125,8 @@ fun SharedBottomNavItem(
 
         Text(
             text = label,
-            color = SharedTextWhite,
-            fontSize = 11.sp, // Tamaño ajustado para uniformidad
+            color = contentColor, // Texto cambia de color
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold
         )
     }
