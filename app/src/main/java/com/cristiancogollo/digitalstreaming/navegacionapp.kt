@@ -19,11 +19,13 @@ sealed class AppScreens(val route: String) {
     object Productos : AppScreens("productos_screen")
     object Notificaciones : AppScreens("notifications_screen")
     object Clientes : AppScreens("clientes_screen")
+
     // Estadísticas no tiene pantalla aún, así que no necesita ruta por ahora
     object AddProduct : AppScreens("add_producto_screen")
     object ProductDetail : AppScreens("product_detail_screen/{productId}") {
         fun createRoute(productId: String) = "product_detail_screen/$productId"
     }
+
     object AddClient : AppScreens("add_client_screen")
 
     object AddSale : AppScreens("add_sale_screen")
@@ -61,7 +63,7 @@ fun AppNavigation(navController: NavHostController) {
 
         // NOTIFICACIONES
         composable(route = AppScreens.Notificaciones.route) {
-            PlaceholderScreen("Pantalla Notificaciones")
+            NotificationScreen(navController = navController)
         }
         //addproducto
         composable(route = AppScreens.AddProduct.route) {
@@ -82,10 +84,16 @@ fun AppNavigation(navController: NavHostController) {
     }
 }
 
-// Pantalla temporal para evitar errores en Productos/Notificaciones
-@Composable
-fun PlaceholderScreen(name: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = name, color = Color.White)
-    }
-}
+
+
+
+
+
+
+
+
+
+
+
+
+

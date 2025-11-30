@@ -58,7 +58,11 @@ fun AddProductScreen(
             // --- CAMPOS DE TEXTO ---
 
             // 1. Nombre
-            CustomTextField(value = viewModel.name, onValueChange = { viewModel.name = it }, label = "Nombre del Servicio (Ej: Netflix)")
+            CustomTextField(
+                value = viewModel.name,
+                onValueChange = { viewModel.name = it },
+                label = "Nombre del Servicio (Ej: Netflix)"
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -83,7 +87,11 @@ fun AddProductScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // 4. Proveedor
-            CustomTextField(value = viewModel.provider, onValueChange = { viewModel.provider = it }, label = "Proveedor")
+            CustomTextField(
+                value = viewModel.provider,
+                onValueChange = { viewModel.provider = it },
+                label = "Proveedor"
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -120,17 +128,7 @@ fun AddProductScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = viewModel.saveStatus ?: "", color = BrandYellow)
             }
-            Button(
-                onClick = {
-                    DataSeeder.uploadInitialData { mensaje ->
-                        // Mostramos el resultado en el estado del ViewModel para verlo en pantalla
-                        viewModel.saveStatus = mensaje
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red) // Rojo para que sepas que es temporal
-            ) {
-                Text("CARGAR BASE DE DATOS INICIAL")
-            }
+
         }
     }
 }

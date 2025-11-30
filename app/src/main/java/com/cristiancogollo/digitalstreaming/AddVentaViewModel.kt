@@ -15,20 +15,23 @@ class AddSaleViewModel : ViewModel() {
     var clientsList by mutableStateOf<List<ClientModel>>(emptyList())
     var productsList by mutableStateOf<List<ProductModel>>(emptyList())
 
-    // --- MODO: VENTA REGULAR ---
+    // Modo Venta Regular
     var selectedClient by mutableStateOf<ClientModel?>(null)
     var selectedProduct by mutableStateOf<ProductModel?>(null)
     var selectedProvider by mutableStateOf("")
 
-    // --- NUEVO: MODO VENTA PERSONALIZADA ---
-    var isCustomSale by mutableStateOf(false) // Switch para activar modo manual
+    // Modo Manual
+    var isCustomSale by mutableStateOf(false)
     var customProductName by mutableStateOf("")
-    var customCostPrice by mutableStateOf("") // String para editar
+    var customCostPrice by mutableStateOf("")
     var customServiceDays by mutableStateOf("30")
 
-    // Datos comunes
+    // Datos Comunes
     var finalSalePrice by mutableStateOf("")
-    var costPrice by mutableStateOf(0.0) // Costo final calculado o manual
+    var costPrice by mutableStateOf(0.0)
+
+    // --- NUEVO: FECHA DE VENTA (Por defecto HOY) ---
+    var saleDate by mutableStateOf(Date())
 
     var isLoading by mutableStateOf(false)
     var statusMsg by mutableStateOf<String?>(null)
@@ -44,7 +47,6 @@ class AddSaleViewModel : ViewModel() {
         db.collection("products").get().addOnSuccessListener { productsList = it.toObjects() }
     }
 
-    // Selección de Producto Regular
     fun onProductSelected(product: ProductModel) {
         selectedProduct = product
         selectedProvider = ""
@@ -52,7 +54,6 @@ class AddSaleViewModel : ViewModel() {
         costPrice = 0.0
     }
 
-    // Selección de Proveedor Regular
     fun onProviderSelected(providerName: String) {
         selectedProvider = providerName
         costPrice = selectedProduct?.providers?.get(providerName) ?: 0.0
@@ -61,7 +62,6 @@ class AddSaleViewModel : ViewModel() {
     fun saveSale(onSuccess: () -> Unit) {
         if (selectedClient == null) return
 
-        // Validación según el modo
         if (!isCustomSale && (selectedProduct == null || selectedProvider.isEmpty())) return
         if (isCustomSale && (customProductName.isEmpty() || customCostPrice.isEmpty())) return
 
@@ -70,7 +70,6 @@ class AddSaleViewModel : ViewModel() {
 
         val saleP = finalSalePrice.toDoubleOrNull() ?: 0.0
 
-        // Determinar datos finales según el modo
         val finalProductName: String
         val finalProvider: String
         val finalCost: Double
@@ -79,10 +78,10 @@ class AddSaleViewModel : ViewModel() {
 
         if (isCustomSale) {
             finalProductName = customProductName
-            finalProvider = "Personalizado" // O puedes poner "Mixto"
+            finalProvider = "Personalizado"
             finalCost = customCostPrice.toDoubleOrNull() ?: 0.0
             days = customServiceDays.toIntOrNull() ?: 30
-            prodId = "custom_combo" // ID genérico para combos manuales
+            prodId = "custom_combo"
         } else {
             finalProductName = selectedProduct!!.name
             finalProvider = selectedProvider
@@ -93,8 +92,9 @@ class AddSaleViewModel : ViewModel() {
 
         val profit = saleP - finalCost
 
-        // Calcular Vencimiento
+        // --- CÁLCULO DE VENCIMIENTO BASADO EN LA FECHA SELECCIONADA ---
         val calendar = Calendar.getInstance()
+        calendar.time = saleDate // Usamos la fecha elegida (ayer, hoy, etc.)
         calendar.add(Calendar.DAY_OF_YEAR, days)
         val expiryDate = calendar.time
 
@@ -108,7 +108,7 @@ class AddSaleViewModel : ViewModel() {
             salePrice = saleP,
             costPrice = finalCost,
             profit = profit,
-            saleDate = Date(),
+            saleDate = saleDate, // Guardamos la fecha elegida
             expiryDate = expiryDate,
             status = "Activa"
         )

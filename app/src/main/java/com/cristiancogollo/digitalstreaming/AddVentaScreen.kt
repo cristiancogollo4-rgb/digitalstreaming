@@ -11,8 +11,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
@@ -32,7 +32,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,11 +43,19 @@ fun AddSaleScreen(
     navController: NavController,
     viewModel: AddSaleViewModel = viewModel()
 ) {
+    // Control de Diálogos de Selección
     var showClientDialog by remember { mutableStateOf(false) }
     var showProductDialog by remember { mutableStateOf(false) }
 
+    // --- NUEVO: ESTADO DEL CALENDARIO ---
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis()
+    )
+
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
     currencyFormat.maximumFractionDigits = 0
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
     Box(
         modifier = Modifier.fillMaxSize().background(DarkBackground).padding(24.dp)
@@ -62,7 +73,7 @@ fun AddSaleScreen(
             }
             Spacer(modifier = Modifier.height(20.dp))
 
-            // --- 1. SELECCIONAR CLIENTE (Siempre igual) ---
+            // --- 1. SELECCIONAR CLIENTE ---
             Text("1. Cliente", color = Color.Gray, modifier = Modifier.align(Alignment.Start))
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -75,6 +86,22 @@ fun AddSaleScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Box(modifier = Modifier.matchParentSize().clickable { showClientDialog = true })
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- NUEVO: 2. FECHA DE VENTA ---
+            Text("2. Fecha de Venta (Si fue ayer u otro día)", color = Color.Gray, modifier = Modifier.align(Alignment.Start))
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = dateFormat.format(viewModel.saleDate),
+                    onValueChange = {},
+                    readOnly = true, // No se escribe, se selecciona
+                    trailingIcon = { Icon(Icons.Default.CalendarMonth, null, tint = BrandYellow) },
+                    colors = fieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                // Al hacer click, abrimos el calendario
+                Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
             }
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -98,10 +125,10 @@ fun AddSaleScreen(
 
             if (!viewModel.isCustomSale) {
                 // ==========================================
-                // MODO AUTOMÁTICO (Seleccionar de la lista)
+                // MODO AUTOMÁTICO
                 // ==========================================
 
-                Text("2. Producto / Servicio", color = Color.Gray, modifier = Modifier.align(Alignment.Start))
+                Text("3. Producto / Servicio", color = Color.Gray, modifier = Modifier.align(Alignment.Start))
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = viewModel.selectedProduct?.name ?: "",
@@ -119,7 +146,7 @@ fun AddSaleScreen(
 
                 // Selector de Proveedor
                 if (viewModel.selectedProduct != null) {
-                    Text("3. Proveedor", color = Color.Gray, modifier = Modifier.align(Alignment.Start))
+                    Text("4. Proveedor", color = Color.Gray, modifier = Modifier.align(Alignment.Start))
                     var expandedProvider by remember { mutableStateOf(false) }
 
                     ExposedDropdownMenuBox(
@@ -161,7 +188,7 @@ fun AddSaleScreen(
 
             } else {
                 // ==========================================
-                // MODO MANUAL (Escribir todo)
+                // MODO MANUAL
                 // ==========================================
 
                 OutlinedTextField(
@@ -178,7 +205,6 @@ fun AddSaleScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Costo Manual
                     OutlinedTextField(
                         value = viewModel.customCostPrice,
                         onValueChange = { viewModel.customCostPrice = it },
@@ -189,7 +215,6 @@ fun AddSaleScreen(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Días Manual
                     OutlinedTextField(
                         value = viewModel.customServiceDays,
                         onValueChange = { viewModel.customServiceDays = it },
@@ -203,8 +228,7 @@ fun AddSaleScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- RESUMEN Y FINALIZAR (Común para ambos) ---
-            // Se muestra si (Modo Normal y hay proveedor) O (Modo Manual y hay nombre y costo)
+            // --- RESUMEN Y FINALIZAR ---
             val showSummary = (!viewModel.isCustomSale && viewModel.selectedProvider.isNotEmpty()) ||
                     (viewModel.isCustomSale && viewModel.customProductName.isNotEmpty() && viewModel.customCostPrice.isNotEmpty())
 
@@ -217,7 +241,6 @@ fun AddSaleScreen(
                         Text("Resumen de Venta", color = BrandYellow, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Precio Venta Editable
                         OutlinedTextField(
                             value = viewModel.finalSalePrice,
                             onValueChange = { viewModel.finalSalePrice = it },
@@ -249,10 +272,11 @@ fun AddSaleScreen(
                         Divider(color = Color.Gray)
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Fechas
-                        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                        val calendar = java.util.Calendar.getInstance()
-                        calendar.add(java.util.Calendar.DAY_OF_YEAR, days)
+                        // CÁLCULO DE VENCIMIENTO VISUAL
+                        // Usamos la fecha seleccionada en el ViewModel
+                        val calendar = Calendar.getInstance()
+                        calendar.time = viewModel.saleDate
+                        calendar.add(Calendar.DAY_OF_YEAR, days)
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CalendarToday, null, tint = BrandYellow, modifier = Modifier.size(16.dp))
@@ -278,7 +302,43 @@ fun AddSaleScreen(
         }
     }
 
-    // Diálogos (Igual que antes)
+    // --- NUEVO: DIÁLOGO DE CALENDARIO ---
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        // Ajuste de zona horaria para que no se corra el día
+                        val offset = TimeZone.getDefault().getOffset(millis)
+                        viewModel.saleDate = Date(millis + offset)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("Aceptar", color = BrandYellow)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar", color = Color.White)
+                }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = Color(0xFF282828), // Fondo oscuro para el calendario
+                titleContentColor = BrandYellow,
+                headlineContentColor = TextWhite,
+                weekdayContentColor = BrandYellow,
+                dayContentColor = TextWhite,
+                selectedDayContainerColor = BrandYellow,
+                selectedDayContentColor = Color.Black,
+                yearContentColor = TextWhite
+            )
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // Diálogos de Selección (Cliente y Producto)
     if (showClientDialog) {
         SearchSelectionDialog(
             title = "Seleccionar Cliente",
@@ -337,7 +397,6 @@ fun <T> SearchSelectionDialog(
         title = { Text(title, color = BrandYellow) },
         text = {
             Column(modifier = Modifier.height(400.dp)) {
-                // Buscador interno
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -348,7 +407,6 @@ fun <T> SearchSelectionDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Lista Filtrada
                 LazyColumn {
                     items(filteredItems) { item ->
                         Row(

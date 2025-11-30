@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -56,16 +55,13 @@ fun NotificationScreen(
                 Text("POR VENCER", color = TextWhite, fontSize = 28.sp, fontWeight = FontWeight.Black)
             }
 
-            Text(
-                "Clientes a cobrar hoy/mañana",
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
-
+            Text("Clientes a cobrar hoy/mañana", color = Color.Gray, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(20.dp))
 
             if (isLoading) {
-                CircularProgressIndicator(color = BrandYellow)
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = BrandYellow)
+                }
             } else if (sales.isEmpty()) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -84,7 +80,8 @@ fun NotificationScreen(
                     contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
                     items(sales) { sale ->
-                        NotificationCard(sale)
+                        // Pasamos el viewModel a la tarjeta para que pueda hacer la búsqueda
+                        NotificationCard(sale, viewModel)
                     }
                 }
             }
@@ -93,13 +90,13 @@ fun NotificationScreen(
 }
 
 @Composable
-fun NotificationCard(sale: SaleModel) {
+fun NotificationCard(
+    sale: SaleModel,
+    viewModel: NotificationsViewModel // Necesitamos el VM para buscar el cliente
+) {
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd/MM", Locale.getDefault())
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
-    currencyFormat.maximumFractionDigits = 0
 
-    // Calcular días restantes para el texto
     val diff = sale.expiryDate.time - Date().time
     val days = TimeUnit.MILLISECONDS.toDays(diff)
 
@@ -109,7 +106,6 @@ fun NotificationCard(sale: SaleModel) {
         days == 1L -> "MAÑANA"
         else -> "En $days días"
     }
-
     val urgencyColor = if (days < 0) Color.Red else BrandYellow
 
     Card(
@@ -120,59 +116,52 @@ fun NotificationCard(sale: SaleModel) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Fila Superior: Nombre y Fecha
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(sale.clientName, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-
-                Surface(
-                    color = urgencyColor.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = urgencyText,
-                        color = urgencyColor,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                Surface(color = urgencyColor.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
+                    Text(urgencyText, color = urgencyColor, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                 }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(sale.productName, color = Color.Gray, fontSize = 14.sp)
-
             Spacer(modifier = Modifier.height(12.dp))
             Divider(color = Color.Gray.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
 
-            // BOTÓN DE COBRAR (WhatsApp)
+            // BOTÓN INTELIGENTE
             Button(
                 onClick = {
-                    try {
-                        val phone = "57${sale.clientId}" // OJO: Aquí deberíamos tener el teléfono guardado en la venta o buscarlo.
-                        // NOTA: Para simplificar, asumiremos que guardamos el teléfono en la venta.
-                        // Si no, tendrías que buscar al cliente por ID.
-                        // Por ahora, usaremos un truco: asumiremos que el ID es el documento, pero idealmente agregamos 'clientPhone' a SaleModel.
+                    // 1. BUSCAMOS EL TELÉFONO EN FIREBASE AL DAR CLIC
+                    viewModel.getClientPhone(sale.clientId) { phone ->
+                        if (!phone.isNullOrEmpty()) {
+                            // 2. SI LO ENCONTRAMOS, ABRIMOS WHATSAPP
+                            try {
+                                val fullPhone = "57$phone"
+                                val msg = "Hola ${sale.clientName}! 👋 Te escribo de Digital Streaming. Paso a recordarte que tu cuenta de *${sale.productName}* vence el ${dateFormat.format(sale.expiryDate)}. \n\n¿Deseas renovar el servicio? 🍿"
+                                val url = "https://api.whatsapp.com/send?phone=$fullPhone&text=${Uri.encode(msg)}"
 
-                        // Mensaje personalizado
-                        val msg = "Hola ${sale.clientName}! 👋 Te escribo de Digital Streaming. Tu cuenta de *${sale.productName}* vence el ${dateFormat.format(sale.expiryDate)}. \n\nEl valor de renovación es: *${currencyFormat.format(sale.salePrice)}*."
-
-                        // Codificar URL
-                        val url = "https://api.whatsapp.com/send?phone=&text=${Uri.encode(msg)}"
-                        // Nota: Si no tienes el teléfono en SaleModel, esto abrirá WhatsApp para que elijas el contacto.
-                        // Si lo agregamos al modelo, se va directo.
-
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = Uri.parse(url)
-                            setPackage("com.whatsapp.w4b") // Business
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    data = Uri.parse(url)
+                                    setPackage("com.whatsapp.w4b") // Intenta Business
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // Fallback a Whatsapp normal o Web
+                                try {
+                                    val fullPhone = "57$phone"
+                                    val msg = "Hola ${sale.clientName}..." // (Mismo mensaje)
+                                    val url = "https://api.whatsapp.com/send?phone=$fullPhone&text=${Uri.encode(msg)}"
+                                    val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    context.startActivity(fallbackIntent)
+                                } catch (e2: Exception) {
+                                    Toast.makeText(context, "No se pudo abrir WhatsApp", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            // 3. SI NO LO ENCONTRAMOS (Cliente borrado o error)
+                            Toast.makeText(context, "Error: No se encontró el número del cliente", Toast.LENGTH_LONG).show()
                         }
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Error al abrir WhatsApp", Toast.LENGTH_SHORT).show()
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = BrandYellow),
