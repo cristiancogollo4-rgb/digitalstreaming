@@ -24,6 +24,7 @@ sealed class AppScreens(val route: String) {
     object ProductDetail : AppScreens("product_detail_screen/{productId}") {
         fun createRoute(productId: String) = "product_detail_screen/$productId"
     }
+    object AddClient : AppScreens("add_client_screen")
 }
 
 @Composable
@@ -49,7 +50,11 @@ fun AppNavigation(navController: NavHostController) {
 
         // CLIENTES
         composable(route = AppScreens.Clientes.route) {
-            ClientsScreen()
+            ClientsScreen(navController = navController)
+        }
+        // AGREGAR CLIENTE
+        composable(route = AppScreens.AddClient.route) {
+            AddClientScreen(navController = navController)
         }
 
         // NOTIFICACIONES
