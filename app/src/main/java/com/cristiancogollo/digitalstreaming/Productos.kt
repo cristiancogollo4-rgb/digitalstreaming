@@ -185,22 +185,31 @@ fun ProductCard(
     product: ProductModel,
     onClick: () -> Unit
 ) {
+    // 1. Formatear Precio
     val formattedPrice = try {
         val format = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
         format.maximumFractionDigits = 0
         format.format(product.salePrice)
     } catch (e: Exception) { "$ ${product.salePrice}" }
 
+    // 2. Lógica Visual para Combos (Resaltar con Azul Neón)
+    val isCombo = product.name.startsWith("Combo", ignoreCase = true)
+    val borderColor = if (isCombo) Color(0xFF00E5FF) else BrandYellow
+    val nameColor = if (isCombo) Color(0xFF00E5FF) else TextWhite
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.8f)
+            .aspectRatio(0.85f) // Un poco más alto para que quepa bien el nombre
             .clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, BrandYellow)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)), // Fondo gris oscuro base
+        border = BorderStroke(1.5.dp, borderColor), // Borde dinámico
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+
+            // --- A. IMAGEN DE FONDO ---
             if (product.imageUrl.isNotEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -210,43 +219,80 @@ fun ProductCard(
                     contentDescription = product.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    alpha = 0.5f,
                     error = rememberVectorPainter(Icons.Default.BrokenImage),
                     placeholder = rememberVectorPainter(Icons.Default.Image)
                 )
+
+                // --- B. CAPA DE OSCURECIMIENTO (Para leer el texto) ---
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.6f)) // 60% de oscuridad
+                )
             } else {
+                // Si no hay imagen, un icono central sutil
                 Icon(
                     imageVector = Icons.Outlined.PlayCircle,
                     contentDescription = null,
                     tint = Color.Gray.copy(alpha = 0.3f),
-                    modifier = Modifier.size(80.dp).align(Alignment.Center)
+                    modifier = Modifier
+                        .size(60.dp)
+                        .align(Alignment.Center)
                 )
             }
 
+            // --- C. CONTENIDO (TEXTO) ---
             Column(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Días (Esquina superior derecha)
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
-                    Text(
-                        text = "${product.serviceDays} Días",
-                        color = BrandYellow, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, blurRadius = 4f))
-                    )
+                    Surface(
+                        color = BrandYellow,
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.padding(2.dp)
+                    ) {
+                        Text(
+                            text = "${product.serviceDays} D",
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
+                // Nombre del Producto (Centro)
                 Text(
                     text = product.name,
-                    color = TextWhite, fontSize = 22.sp, fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center, lineHeight = 24.sp,
-                    style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, blurRadius = 8f))
+                    color = nameColor, // Color dinámico (Blanco o Neón)
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp,
+                    maxLines = 3,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = Color.Black, blurRadius = 10f
+                        )
+                    )
                 )
 
+                // Precio (Abajo)
                 Text(
                     text = formattedPrice,
-                    color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
-                    style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, blurRadius = 8f))
+                    color = TextWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = Color.Black, blurRadius = 10f
+                        )
+                    )
                 )
             }
         }

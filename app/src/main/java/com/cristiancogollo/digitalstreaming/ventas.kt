@@ -1,9 +1,8 @@
 package com.cristiancogollo.digitalstreaming
 
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,9 +10,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.ConfirmationNumber // Icono para el ticket
-import androidx.compose.material.icons.outlined.ShoppingCart // Icono para el carrito del header
+import androidx.compose.material.icons.outlined.ConfirmationNumber
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,27 +23,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// --- Modelo de datos para una Venta ---
-data class SaleItem(
-    val id: Int,
-    val customerName: String,
-    val detailSubtitle: String, // Puede ser fecha (DD/MM/AA) o "PRODUCTO"
-    val price: String
-)
-
-// Datos de ejemplo basados en el mockup
-val sampleSales = listOf(
-    SaleItem(1, "Juan Perez", "DD/MM/AA", "$13.000"),
-    SaleItem(2, "Juan Perez", "PRODUCTO", "$13.000"),
-    SaleItem(3, "Juan Perez", "DD/MM/AA", "$13.000"),
-    SaleItem(4, "Juan Perez", "PRODUCTO", "$13.000"),
-    SaleItem(5, "Juan Perez", "DD/MM/AA", "$13.000"),
-    SaleItem(6, "Carlos Ruiz", "PRODUCTO", "$25.000") // Un extra para probar el scroll
-)
-
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
+// --- UTILIDADES DE FECHA ---
+import java.util.concurrent.TimeUnit
+import java.util.Date
 @Composable
-fun SalesScreen() {
+fun SalesScreen(
+    navController: NavController,
+    viewModel: SalesViewModel = viewModel() // Inyectamos el ViewModel
+) {
+    val sales = viewModel.filteredSales
+    val isLoading = viewModel.isLoading
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -56,46 +52,58 @@ fun SalesScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // 1. Header "VENTAS" con icono de carrito
             SalesHeader()
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 2. Barra de Buscador (Adaptada para ventas)
-            SearchBarSales()
+            // Buscador (Reutilizamos lógica visual)
+            SearchBarSales(
+                query = viewModel.searchQuery,
+                onQueryChange = { viewModel.searchQuery = it }
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 3. Lista Vertical de Ventas (LazyColumn)
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f) // Ocupa el espacio restante
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp), // Espacio entre tarjetas
-                contentPadding = PaddingValues(bottom = 100.dp) // Espacio inferior para que el FAB no tape el último elemento
-            ) {
-                items(sampleSales) { sale ->
-                    SalesCard(sale = sale)
+            // LISTA REAL
+            if (isLoading) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = BrandYellow)
+                }
+            } else if (sales.isEmpty()) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text("No hay ventas registradas", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(bottom = 100.dp)
+                ) {
+                    items(sales) { sale ->
+                        SalesCard(sale = sale)
+                    }
                 }
             }
         }
 
-        // 5. Botón Flotante "Agregar" (Reutilizado)
         FloatingAddButtonSales(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 90.dp, end = 20.dp)
+                .padding(bottom = 90.dp, end = 20.dp),
+            onClick = { navController.navigate(AppScreens.AddSale.route) }
         )
     }
 }
 
-// --- Componentes Específicos de esta Pantalla ---
+// --- Componentes ---
 
 @Composable
 fun SalesHeader() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            imageVector = Icons.Outlined.ShoppingCart, // Icono de carrito
+            imageVector = Icons.Outlined.ShoppingCart,
             contentDescription = "Ventas Icono",
             tint = TextWhite,
             modifier = Modifier.size(40.dp)
@@ -106,88 +114,118 @@ fun SalesHeader() {
             color = TextWhite,
             fontSize = 34.sp,
             fontWeight = FontWeight.Black,
-            letterSpacing = 1.sp // Un poco de espaciado entre letras como en la imagen
+            letterSpacing = 1.sp
         )
     }
 }
 
 @Composable
-fun SearchBarSales() {
-    // Misma estructura que los buscadores anteriores
-    Row(
+fun SearchBarSales(query: String, onQueryChange: (String) -> Unit) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text("Buscar venta...", color = Color.Gray) },
+        leadingIcon = { Icon(Icons.Filled.Search, null, tint = BrandYellow) },
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            focusedTextColor = TextWhite,
+            unfocusedTextColor = TextWhite,
+            cursorColor = BrandYellow,
+            focusedIndicatorColor = BrandYellow,
+            unfocusedIndicatorColor = BrandYellow
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
-            .height(50.dp)
-            .border(1.dp, BrandYellow, RoundedCornerShape(25.dp))
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Search,
-            contentDescription = "Buscar",
-            tint = BrandYellow,
-            modifier = Modifier.size(28.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = "Buscar Venta...", // Texto placeholder específico
-            color = Color.Gray,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
+    )
 }
 
 @Composable
-fun SalesCard(sale: SaleItem) {
+fun SalesCard(sale: SaleModel) {
+    // Formateadores
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
+    currencyFormat.maximumFractionDigits = 0
+    val dateFormat = SimpleDateFormat("dd/MM/yy", Locale.getDefault())
+
+    // 1. OBTENER ESTADO Y COLOR
+    val statusColor = getStatusColor(sale.expiryDate)
+    val statusText = getStatusText(sale.expiryDate)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(85.dp), // Altura fija aproximada según el mockup
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent), // Fondo transparente
-        border = BorderStroke(1.dp, BrandYellow) // Borde amarillo
+            .height(100.dp), // Un pelín más alto
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)), // Fondo gris oscuro
+        // 2. BORDE DINÁMICO (Semáforo)
+        border = BorderStroke(1.5.dp, statusColor)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, // Separa contenido a los extremos
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Parte Izquierda: Nombre y Subtítulo
-            Column(verticalArrangement = Arrangement.Center) {
+            // IZQUIERDA: Info Cliente y Producto
+            Column(
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
-                    text = sale.customerName,
+                    text = sale.clientName,
                     color = TextWhite,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
-                    text = sale.detailSubtitle, // Ej: "DD/MM/AA" o "PRODUCTO"
-                    color = BrandYellow, // Color amarillo para el subtítulo
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    text = sale.productName,
+                    color = Color.Gray, // Producto en gris suave
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // FECHA Y ESTADO
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = statusColor, // Icono del color del estado
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = statusText, // Ej: "Vence MAÑANA"
+                        color = statusColor, // Texto del color del estado
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
-            // Parte Derecha: Precio e Icono de Ticket
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // DERECHA: Precio
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.Center
+            ) {
                 Text(
-                    text = sale.price,
+                    text = currencyFormat.format(sale.salePrice),
                     color = TextWhite,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                // Usamos un icono de ticket genérico (ConfirmationNumber)
-                Icon(
-                    imageVector = Icons.Outlined.ConfirmationNumber,
-                    contentDescription = "Ticket",
-                    tint = BrandYellow,
-                    modifier = Modifier.size(32.dp)
+
+                // Nombre del Proveedor pequeño (para que sepas de dónde salió)
+                Text(
+                    text = sale.providerName,
+                    color = Color.DarkGray,
+                    fontSize = 10.sp
                 )
             }
         }
@@ -195,10 +233,11 @@ fun SalesCard(sale: SaleItem) {
 }
 
 @Composable
-fun FloatingAddButtonSales(modifier: Modifier = Modifier) {
-    // El mismo botón que usamos en las otras pantallas
+fun FloatingAddButtonSales(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
-        modifier = modifier.size(85.dp),
+        modifier = modifier
+            .size(85.dp)
+            .clickable { onClick() },
         shape = CircleShape,
         color = BrandYellow,
         shadowElevation = 8.dp
@@ -207,26 +246,36 @@ fun FloatingAddButtonSales(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = "Agregar Venta",
-                tint = Color.Black,
-                modifier = Modifier.size(45.dp)
-            )
-            Text(
-                text = "Agregar",
-                color = Color.Black,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black
-            )
+            Icon(Icons.Filled.Add, "Agregar", tint = Color.Black, modifier = Modifier.size(45.dp))
+            Text("Agregar", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Black)
         }
     }
 }
+fun getStatusColor(expiryDate: Date): Color {
+    val diff = expiryDate.time - Date().time
+    val days = TimeUnit.MILLISECONDS.toDays(diff)
+    return when {
+        days < 0 -> Color(0xFFFF5252) // Rojo (Vencida)
+        days <= 3 -> BrandYellow      // Amarillo (Por vencer)
+        else -> Color(0xFF4CAF50)     // Verde (Activa)
+    }
+}
 
-// --- Preview ---
+// Devuelve un texto corto de estado
+fun getStatusText(expiryDate: Date): String {
+    val diff = expiryDate.time - Date().time
+    val days = TimeUnit.MILLISECONDS.toDays(diff)
+    return when {
+        days < 0 -> "VENCIDA hace ${-days} días"
+        days == 0L -> "VENCE HOY"
+        days == 1L -> "Vence MAÑANA"
+        else -> "Faltan $days días"
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewSalesScreen() {
-    // Asegúrate de que los colores estén disponibles en el preview si no son globales
-    SalesScreen()
+    val navController = rememberNavController()
+    SalesScreen(navController = navController)
 }

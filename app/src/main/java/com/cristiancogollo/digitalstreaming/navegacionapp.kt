@@ -25,6 +25,8 @@ sealed class AppScreens(val route: String) {
         fun createRoute(productId: String) = "product_detail_screen/$productId"
     }
     object AddClient : AppScreens("add_client_screen")
+
+    object AddSale : AppScreens("add_sale_screen")
 }
 
 @Composable
@@ -40,7 +42,7 @@ fun AppNavigation(navController: NavHostController) {
 
         // VENTAS
         composable(route = AppScreens.Ventas.route) {
-            SalesScreen()
+            SalesScreen(navController = navController)
         }
 
         // PRODUCTOS
@@ -72,6 +74,10 @@ fun AppNavigation(navController: NavHostController) {
             // Extraemos el ID que viene en la ruta
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
             ProductDetailScreen(navController = navController, productId = productId)
+        }
+
+        composable(route = AppScreens.AddSale.route) {
+            AddSaleScreen(navController = navController)
         }
     }
 }
